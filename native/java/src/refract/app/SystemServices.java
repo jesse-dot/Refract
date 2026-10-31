@@ -17,6 +17,7 @@ final class SystemServices {
             case Context.INPUT_METHOD_SERVICE -> new android.view.inputmethod.InputMethodManager();
             case Context.SENSOR_SERVICE -> new android.hardware.SensorManager() {};
             case Context.VIBRATOR_SERVICE -> new android.os.Vibrator() {};
+            case Context.VIBRATOR_MANAGER_SERVICE -> vibratorManager();
             case Context.CONNECTIVITY_SERVICE -> new android.net.ConnectivityManager();
             case Context.TELEPHONY_SERVICE -> new android.telephony.TelephonyManager();
             case Context.UI_MODE_SERVICE -> new android.app.UiModeManager();
@@ -33,6 +34,25 @@ final class SystemServices {
         };
     }
 
+    /**
+     * VibratorManager (API 31+) with a no-op default vibrator. A plain
+     * de-stubbed manager is not enough: its getDefaultVibrator() would return
+     * null, and Unreal's GameActivity calls that method on the manager in
+     * onCreate without a null check on either result -- on a Quest the service
+     * always exists. That NPE killed Into the Radius 2 on startup, and the
+     * process then aborted in native teardown (exit code 134), hiding it.
+     * The vibrator's id is 0, matching the de-stubbed Vibrator.getId().
+     */
+    private static android.os.VibratorManager vibratorManager() {
+        android.os.Vibrator vibrator = new android.os.Vibrator() {};
+        return new android.os.VibratorManager() {
+            @Override public android.os.Vibrator getDefaultVibrator() { return vibrator; }
+            @Override public android.os.Vibrator getVibrator(int id) { return vibrator; }
+            @Override public int[] getVibratorIds() { return new int[] {0}; }
+            @Override public void cancel() {}
+        };
+    }
+
     static String nameOf(Class<?> c) {
         String n = c.getName();
         return switch (n) {
@@ -45,6 +65,7 @@ final class SystemServices {
             case "android.view.inputmethod.InputMethodManager" -> Context.INPUT_METHOD_SERVICE;
             case "android.hardware.SensorManager" -> Context.SENSOR_SERVICE;
             case "android.os.Vibrator" -> Context.VIBRATOR_SERVICE;
+            case "android.os.VibratorManager" -> Context.VIBRATOR_MANAGER_SERVICE;
             case "android.net.ConnectivityManager" -> Context.CONNECTIVITY_SERVICE;
             case "android.telephony.TelephonyManager" -> Context.TELEPHONY_SERVICE;
             case "android.app.UiModeManager" -> Context.UI_MODE_SERVICE;
